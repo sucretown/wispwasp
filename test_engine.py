@@ -68,7 +68,6 @@ def build(tmp, **overrides):
     # the saved settings in activation mode, and these fakes only
     # implement fixed-length recording.
     s.set("audio.mode", "cycle")
-    s = Settings.load()
     s.set("paths.overlay_dir", str(tmp / "overlay"))
     s.set("paths.manual_dir", str(tmp / "manual"))
     s.set("audio.record_seconds", 1)
@@ -85,7 +84,7 @@ def build(tmp, **overrides):
     return eng, fake
 
 
-tmp = Path("_enginetest")
+tmp = Path("_enginetest").resolve()
 # Start clean. Without this a second run counts files left by the first
 # and the manual-image check fails for a reason that has nothing to do
 # with the engine.
@@ -330,30 +329,53 @@ eng6.shutdown()
 print("\n  the capture source setting picks the right recorder:")
 eng7, _ = build(tmp)
 from avcore.audio import INPUT, OUTPUT
+import avcore.engine as engine_module
+import avcore.process_audio as process_audio
 
-eng7.s.set("audio.device_kind", "output")
-eng7.s.set("audio.device_name", "")
-r = eng7._build_recorder()
-check("output setting gives a loopback recorder", r.kind == OUTPUT, r.label)
-r.close()
 
-eng7.s.set("audio.device_kind", "input")
-r = eng7._build_recorder()
-check("input setting gives a microphone recorder", r.kind == INPUT, r.label)
-r.close()
+class SourceProbe:
+    """Records which ordinary audio source the engine requested."""
 
-eng7.s.set("audio.device_kind", "process")
-eng7.s.set("audio.process_exe", "definitely-not-running.exe")
-eng7.s.set("audio.process_name", "Nothing")
+    def __init__(self, device_name, kind):
+        self.device_name = device_name
+        self.kind = kind
+        self.label = f"probe {kind}"
+
+    def close(self):
+        pass
+
+
+real_recorder = engine_module.Recorder
+real_find_by_name = process_audio.find_by_name
+engine_module.Recorder = SourceProbe
+process_audio.find_by_name = lambda _exe: None
 try:
-    eng7._build_recorder()
-    check("a missing application is reported, not ignored", False)
-except RuntimeError as exc:
-    # The failure mode that matters: choosing an app, closing it, and
-    # getting silence with no explanation.
-    check("a missing application is reported, not ignored",
-          "not running" in str(exc).lower(), str(exc)[:52])
-eng7.shutdown()
+    eng7.s.set("audio.device_kind", "output")
+    eng7.s.set("audio.device_name", "")
+    r = eng7._build_recorder()
+    check("output setting gives a loopback recorder", r.kind == OUTPUT, r.label)
+    r.close()
+
+    eng7.s.set("audio.device_kind", "input")
+    r = eng7._build_recorder()
+    check("input setting gives a microphone recorder", r.kind == INPUT, r.label)
+    r.close()
+
+    eng7.s.set("audio.device_kind", "process")
+    eng7.s.set("audio.process_exe", "definitely-not-running.exe")
+    eng7.s.set("audio.process_name", "Nothing")
+    try:
+        eng7._build_recorder()
+        check("a missing application is reported, not ignored", False)
+    except RuntimeError as exc:
+        # The failure mode that matters: choosing an app, closing it, and
+        # getting silence with no explanation.
+        check("a missing application is reported, not ignored",
+              "not running" in str(exc).lower(), str(exc)[:52])
+finally:
+    engine_module.Recorder = real_recorder
+    process_audio.find_by_name = real_find_by_name
+    eng7.shutdown()
 
 print("\n=== clearing the overlay hides the image but keeps the file ===")
 eng8, fake8 = build(tmp)

@@ -33,7 +33,7 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_synctest")
+tmp = Path("_synctest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 # Tolerates a leftover: Windows will not delete a folder a live
 # window still has open, so the cleanup at the end can fail.
@@ -168,7 +168,7 @@ print("\n=== the history panel can be resized ===")
 from PySide6.QtWidgets import QSplitter
 from avgui.window import MainWindow
 
-split_tmp = Path("_splittest")
+split_tmp = Path("_splittest").resolve()
 shutil.rmtree(split_tmp, ignore_errors=True)
 split_tmp.mkdir(parents=True, exist_ok=True)
 ss = Settings.load(path=split_tmp / "s.json")

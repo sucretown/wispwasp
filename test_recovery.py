@@ -70,7 +70,7 @@ class FakeLauncher:
         pass
 
 
-tmp = Path("_recovertest")
+tmp = Path("_recovertest").resolve()
 import shutil
 shutil.rmtree(tmp, ignore_errors=True)
 
@@ -253,7 +253,7 @@ class WarmLauncher:
         pass
 
 
-warm = Path("_warmtest")
+warm = Path("_warmtest").resolve()
 shutil.rmtree(warm, ignore_errors=True)
 warm.mkdir(parents=True, exist_ok=True)
 sw = Settings.load(path=warm / "s.json")

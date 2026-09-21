@@ -16,7 +16,8 @@ from PyInstaller.utils.hooks import (
 )
 
 datas = [("overlay.html", "."), ("tools/7zr.exe", "tools"),
-         ("assets", "assets")]
+         ("assets", "assets"), ("LICENSE", "."),
+         ("THIRD_PARTY_NOTICES.md", ".")]
 binaries = []
 hiddenimports = []
 

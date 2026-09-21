@@ -26,7 +26,7 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_cleartest")
+tmp = Path("_cleartest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 # Tolerates a leftover: Windows will not delete a folder a live
 # window still has open, so the cleanup at the end can fail.

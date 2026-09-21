@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a focused change to WispWasp.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow
+      description: Describe the concrete problem before proposing the implementation.
+      placeholder: "When I ..., I cannot ... because ..."
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should become possible or easier?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Implementation idea
+      description: Optional. Architecture is easier to review when problem and solution are separate.
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints or edge cases
+      description: Hardware, OBS, ComfyUI, Windows, privacy, performance, packaging, etc.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request describes one focused capability or workflow.
+          required: true

@@ -1,0 +1,74 @@
+name: Bug report
+description: Something in WispWasp is broken or behaves unexpectedly.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste API keys, private transcripts, or unredacted settings files.
+        Security-sensitive reports should follow SECURITY.md instead.
+  - type: input
+    id: version
+    attributes:
+      label: WispWasp version
+      description: Version number and commit, if this is a source checkout.
+      placeholder: "0.1.8 / abc1234"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Image backend
+      options:
+        - ComfyUI (local)
+        - Pollinations (online)
+        - Not related to generation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Smallest sequence that reliably causes the problem.
+      placeholder: |
+        1. Open ...
+        2. Choose ...
+        3. Press ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include exact error text where useful.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Paste relevant self-test FAIL lines or logs after redacting secrets and private paths.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I checked that this is not a security-sensitive report.
+          required: true
+        - label: I removed API keys, credentials, private transcripts, and other sensitive data.
+          required: true

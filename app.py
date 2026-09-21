@@ -104,7 +104,10 @@ def main():
         if i + 1 < len(sys.argv):
             panel = sys.argv[i + 1]
 
-    return run(engine, panel=panel)
+    try:
+        return run(engine, panel=panel)
+    finally:
+        server.stop()
 
 
 if __name__ == "__main__":

@@ -79,6 +79,10 @@ def is_on(settings):
 
 
 # ---- the classifier ----------------------------------------------------
+# Bundled as assets/image-safety-xs.onnx from:
+# https://huggingface.co/OwenElliott/image-safety-classifier-xs
+# The model repository declares MIT licensing. Keep THIRD_PARTY_NOTICES.md
+# in sync if this asset is replaced.
 
 CLASSES = ("NSFL", "NSFW", "SFW")
 

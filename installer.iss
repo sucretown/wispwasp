@@ -56,6 +56,11 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; \
 
 [Files]
 Source: "dist\WispWasp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Human-readable project/legal material belongs beside the executable, not
+; only under PyInstaller's internal runtime folder.
+Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "installer\READ-ME-FIRST.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"

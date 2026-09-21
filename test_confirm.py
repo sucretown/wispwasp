@@ -49,7 +49,7 @@ def pump(seconds=0.2):
         time.sleep(0.01)
 
 
-tmp = Path("_confirmtest")
+tmp = Path("_confirmtest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 # Tolerates a leftover: Windows will not delete a folder a live
 # window still has open, so the cleanup at the end can fail.
@@ -249,12 +249,25 @@ print("\n=== the capture picker keeps its selection ===")
 # fell back to the first entry.
 from avgui.settings_panel import index_of
 
-dev = Path("_devicetest")
+dev = Path("_devicetest").resolve()
 shutil.rmtree(dev, ignore_errors=True)
 dev.mkdir(parents=True, exist_ok=True)
 sd = Settings.load(path=dev / "s.json")
 sd.set("ui.confirm_settings", True)
 sd.save()
+
+# Selection persistence is a widget/settings contract, not a hardware test.
+# Give the picker two deterministic outputs so a clean CI machine with no
+# audio endpoints exercises the same tuple-valued itemData path.
+import avcore.audio as _audio_module
+_real_list_devices = _audio_module.list_devices
+_audio_module.list_devices = lambda _kind=None: [
+    {"name": "Test Speakers A", "kind": "output",
+     "is_default": True, "index": 101},
+    {"name": "Test Speakers B", "kind": "output",
+     "is_default": False, "index": 102},
+]
+
 engd = Engine(sd)
 pd = SettingsPanel(engd)
 
@@ -262,7 +275,7 @@ outputs = [i for i in range(pd.device.count())
            if isinstance(pd.device.itemData(i), tuple)
            and pd.device.itemData(i)[1] == "output"
            and pd.device.itemData(i)[0]]
-check("there are real outputs to choose from", len(outputs) >= 2,
+check("there are two outputs to choose from", len(outputs) >= 2,
       f"{len(outputs)}")
 
 first, second = outputs[0], outputs[1]
@@ -475,7 +488,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QSpinBox,
 )
 
-audit = Path("_audittest")
+audit = Path("_audittest").resolve()
 shutil.rmtree(audit, ignore_errors=True)
 audit.mkdir(parents=True, exist_ok=True)
 sa = Settings.load(path=audit / "s.json")
@@ -600,6 +613,9 @@ pb._save("audio.cycle_seconds", 33)
 check("later changes are not held", not pb.is_dirty())
 check("and land immediately", sa.get("audio.cycle_seconds") == 33)
 
+# Restore the real enumerator only after every SettingsPanel audit has used
+# the deterministic device fixture.
+_audio_module.list_devices = _real_list_devices
 enga.shutdown()
 shutil.rmtree(audit, ignore_errors=True)
 

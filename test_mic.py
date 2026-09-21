@@ -66,7 +66,7 @@ else:
     print("  no name is shared between the two lists; skipping")
 
 print("\n=== recording from a microphone ===")
-tmp = Path("_mictest")
+tmp = Path("_mictest").resolve()
 tmp.mkdir(exist_ok=True)
 clip = tmp / "mic.wav"
 

@@ -33,7 +33,7 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_optionstest")
+tmp = Path("_optionstest").resolve()
 out = tmp / "out"
 out.mkdir(parents=True)
 

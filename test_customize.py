@@ -37,7 +37,7 @@ def pump(seconds=0.2):
         time.sleep(0.01)
 
 
-tmp = Path("_customtest")
+tmp = Path("_customtest").resolve()
 # Windows will not delete a folder a live window still has open, so the
 # cleanup at the end can quietly fail. Tolerating a leftover here is the
 # difference between one flaky run and every subsequent run failing.
@@ -546,34 +546,70 @@ check("no theme means no sound either",
       not wind.sounds.enabled if hasattr(wind.sounds, "enabled") else True,
       "sound belongs to the theme")
 
-print("\n  the real player, if Qt can reach an audio device:")
-# Guarded rather than assumed: QtMultimedia is a separate package, and
-# the app is designed to stay silent rather than fall over without it.
+print("\n  sound-player wiring is deterministic without audio hardware:")
+# GitHub's Windows runner has Qt Multimedia installed but no audio endpoint.
+# In that environment QSoundEffect exists yet remains in Loading forever,
+# so asserting Ready/isPlaying would test runner hardware rather than our
+# wiring. Replace only the Qt effect with a stateful stand-in; ThemeSounds
+# still creates every player, assigns sources/volumes, and calls play().
+import PySide6.QtMultimedia as _qt_multimedia
+
+_RealSoundEffect = _qt_multimedia.QSoundEffect
+
+
+class _FakeSoundEffect:
+    class Status:
+        Loading = 0
+        Ready = 1
+
+    def __init__(self, *_args, **_kwargs):
+        self._source = None
+        self._volume = 1.0
+        self._playing = False
+
+    def setSource(self, source):
+        self._source = source
+
+    def source(self):
+        return self._source
+
+    def setVolume(self, value):
+        self._volume = float(value)
+
+    def volume(self):
+        return self._volume
+
+    def status(self):
+        return self.Status.Ready
+
+    def play(self):
+        self._playing = True
+
+    def stop(self):
+        self._playing = False
+
+    def isPlaying(self):
+        return self._playing
+
+
+_qt_multimedia.QSoundEffect = _FakeSoundEffect
+
 real = ThemeSounds(dec / "real_sounds")
 real.set_enabled(True)
-if real.error:
-    print(f"     skipped - {real.error}")
-    check("a missing sound backend is handled, not fatal",
-          not real.play("wisp"), real.error[:48])
-else:
-    check("every effect loaded", len(real._players) == len(EFFECTS),
-          f"{len(real._players)} of {len(EFFECTS)}")
-    ready = []
-    for name, effect in real._players.items():
-        deadline = time.time() + 4
-        while (time.time() < deadline
-               and effect.status() == effect.Status.Loading):
-            app.processEvents()
-            time.sleep(0.02)
-        ready.append(effect.status() == effect.Status.Ready)
-    check("all of them reached Ready", all(ready),
-          f"{sum(ready)} of {len(ready)}")
-    check("volumes came from the table",
-          all(abs(real._players[n].volume() - VOLUME[n]) < 0.01
-              for n in real._players))
-    check("playing one is accepted", real.play("wisp"))
-    real.set_enabled(False)
-    check("and refused once disabled", not real.play("wisp"))
+check("every effect loaded", len(real._players) == len(EFFECTS),
+      f"{len(real._players)} of {len(EFFECTS)}")
+check("all of them reached Ready",
+      all(effect.status() == effect.Status.Ready
+          for effect in real._players.values()),
+      f"{len(real._players)} of {len(EFFECTS)}")
+check("volumes came from the table",
+      all(abs(real._players[n].volume() - VOLUME[n]) < 0.01
+          for n in real._players))
+check("playing one is accepted", real.play("wisp"))
+check("the selected effect enters playing state",
+      real._players["wisp"].isPlaying())
+real.set_enabled(False)
+check("and refused once disabled", not real.play("wisp"))
 
 print("\n  a theme may reshape controls, since it cannot paint on them:")
 from avgui.themes import style_sheet
@@ -1212,6 +1248,9 @@ check("and asking again is still safe", quiet.play() is False)
 
 egg.deleteLater()
 quiet.deleteLater()
+
+# Restore Qt Multimedia after the deterministic sound-state checks.
+_qt_multimedia.QSoundEffect = _RealSoundEffect
 
 print("\n=== keyboard shortcuts ===")
 

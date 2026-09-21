@@ -82,13 +82,49 @@ missing = sorted(t for t in listed if not Path(t).exists())
 check("no test file is listed that is absent",
       not missing, ", ".join(missing) or f"{len(listed)} listed")
 
-print("\n=== every suite in build.ps1 is documented ===")
+print("\n=== every normal build suite is documented ===")
+from tools.run_tests import NORMAL_TEST_SUITES
+
+normal_suites = set(NORMAL_TEST_SUITES)
+undocumented = sorted(t for t in normal_suites if t not in listed)
+check("the test table covers the normal build suites",
+      not undocumented,
+      ", ".join(undocumented) or f"{len(normal_suites)} suites")
+
 build = Path("build.ps1").read_text(encoding="utf-8")
-in_build = {part.split('"')[0] for part in build.split('"test_')[1:]}
-in_build = {f"test_{p}" for p in in_build}
-undocumented = sorted(t for t in in_build if t not in listed)
-check("the test table covers what the build runs",
-      not undocumented, ", ".join(undocumented) or f"{len(in_build)} suites")
+check("the build uses the canonical test runner",
+      "tools\\run_tests.py" in build or "tools/run_tests.py" in build)
+
+print("\n=== repository governance files are present ===")
+for required in (
+    "README.md", "ARCHITECTURE.md", "CONTRIBUTING.md", "AGENTS.md",
+    "RELEASING.md", "LICENSE", "THIRD_PARTY_NOTICES.md",
+    "SECURITY.md", "SUPPORT.md",
+):
+    check(f"{required} exists", Path(required).is_file())
+
+spec = Path("wispwasp.spec").read_text(encoding="utf-8")
+check("the packaged app carries the project licensing status",
+      '("LICENSE", ".")' in spec)
+check("the packaged app carries third-party notices",
+      '("THIRD_PARTY_NOTICES.md", ".")' in spec)
+
+notices = Path("THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+if Path("assets/image-safety-xs.onnx").exists():
+    check("the bundled safety model has provenance in third-party notices",
+          "OwenElliott/image-safety-classifier-xs" in notices)
+check("the optional cut-out model has provenance in third-party notices",
+      "Comfy-Org/BiRefNet" in notices)
+
+installer = Path("installer.iss").read_text(encoding="utf-8")
+check("the installer exposes the project licensing status",
+      'Source: "LICENSE"' in installer)
+check("the installer exposes third-party notices",
+      'Source: "THIRD_PARTY_NOTICES.md"' in installer)
+check("the installer includes the first-run readme",
+      'Source: "installer\\READ-ME-FIRST.md"' in installer)
+check("release instructions require public artifact verification",
+      "Verify the public path" in Path("RELEASING.md").read_text(encoding="utf-8"))
 
 print("\n=== colour names it references are real ===")
 for name in ("TALLY", "WORKING", "OK", "FAVOURITE", "DANGER", "SELECTION"):

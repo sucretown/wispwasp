@@ -18,7 +18,7 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_servertest")
+tmp = Path("_servertest").resolve()
 s = Settings.load()
 s.set("paths.overlay_dir", str(tmp))
 # A port unlikely to collide with a running listener.py.
@@ -63,11 +63,24 @@ r = requests.get(f"{base}/img/../../settings.json", timeout=10)
 check("refuses to serve files outside the folder",
       r.status_code in (403, 404), f"HTTP {r.status_code}")
 
+print("\n=== the live URL follows the bound port, not edited settings ===")
+s.set("server.port", 8488)
+check("changing settings does not invent a new live URL",
+      ":8477/" in srv.url(), srv.url())
+check("the bound port still answers",
+      requests.get(f"{base}/state.json", timeout=10).status_code == 200)
+s.set("server.port", 8477)
+
 print("\n=== a busy port is reported, not raised ===")
 second = OverlayServer(s, app_dir=Path(".").resolve())
 started = second.start()
 check("second server declines to start", started is False)
 check("and explains why", "in use" in second.error.lower(), second.error)
+
+print("\n=== stopping releases what was bound ===")
+srv.stop()
+check("server reports stopped", not srv.is_running())
+check("the port is reusable", port_is_free(8477))
 
 eng.shutdown()
 import shutil

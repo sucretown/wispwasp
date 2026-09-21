@@ -84,7 +84,7 @@ from avcore.config import Settings
 from avcore.engine import Engine
 from demo_stubs import DemoBackend
 
-tmp = Path("_activationtest")
+tmp = Path("_activationtest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -231,7 +231,7 @@ _app.setStyleSheet(theme.QSS)
 # A settings file of its own: the panel saves on every change, and writing
 # the real one would leave the app - and the next test - in whatever mode
 # this test finished in.
-_tmpdir = Path("_paneltest")
+_tmpdir = Path("_paneltest").resolve()
 _tmpdir.mkdir(exist_ok=True)
 _s = Settings.load(path=_tmpdir / "settings.json")
 _s.set("audio.mode", "cycle")

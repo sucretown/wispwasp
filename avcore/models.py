@@ -23,8 +23,10 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .version import __version__
+
 CATALOGUE = "https://civitai.com/api/v1/models"
-AGENT = "WispWasp/0.1 (+model browser)"
+AGENT = f"WispWasp/{__version__} (+model browser)"
 
 # What the app can actually run. Anything else in the catalogue is
 # hidden rather than offered and then failing at generation time.

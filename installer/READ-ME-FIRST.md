@@ -5,7 +5,7 @@ images on an overlay you can put in OBS.
 
 ## Installing
 
-Run `WispWasp-0.1.0-setup.exe`.
+Run the `WispWasp-<version>-setup.exe` installer you were given.
 
 **Windows will warn you about it.** The installer is not code-signed, so
 SmartScreen shows "Windows protected your PC". Click **More info**, then
@@ -68,4 +68,4 @@ If something goes badly wrong there is a log at:
 - Online images are watermarked. That is Pollinations, not me.
 - Generating locally needs an NVIDIA card. AMD will install but will not
   generate.
-- It is version 0.1. Assume rough edges.
+- This is still an early project. Assume rough edges and report anything confusing.

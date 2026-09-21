@@ -23,7 +23,7 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_installtest")
+tmp = Path("_installtest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 (tmp / "srv").mkdir(parents=True)
 

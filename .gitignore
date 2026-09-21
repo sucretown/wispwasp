@@ -28,3 +28,23 @@ _*.webm
 # committed.
 _*/
 build_all.txt
+
+# Tool caches, reports and editor/OS noise
+*.log
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+.idea/
+.DS_Store
+Thumbs.db
+
+# Source-mode runtime data. Older builds wrote these directly at repo root;
+# the application now migrates them into .wispwasp-data/.
+.wispwasp-data/
+prompts.json
+favourite_prompts.json
+styles.json
+sounds/
+scratch/

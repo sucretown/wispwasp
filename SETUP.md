@@ -84,14 +84,19 @@ it belongs in the engine.
 
 | | Running from source | Installed |
 |---|---|---|
-| Settings | `settings.json` in the project folder | `%LOCALAPPDATA%\WispWasp` |
-| Overlay images | `output\` | `%LOCALAPPDATA%\WispWasp\output` |
-| Recording scratch | `scratch\` | `%LOCALAPPDATA%\WispWasp\scratch` |
-| Prompt catalogue | `prompts.json` | `%LOCALAPPDATA%\WispWasp\prompts.json` |
-| Kept prompts | `favourite_prompts.json` | alongside the above |
-| Style presets | `styles.json` | alongside the above |
-| Theme sounds | `sounds\` | generated on first use, not shipped |
+| Settings | `.wispwasp-data\settings.json` | `%LOCALAPPDATA%\WispWasp\settings.json` |
+| Overlay images | `.wispwasp-data\output\` | `%LOCALAPPDATA%\WispWasp\output` |
+| Recording scratch | `.wispwasp-data\scratch\` | `%LOCALAPPDATA%\WispWasp\scratch` |
+| Prompt catalogue | `.wispwasp-data\prompts.json` | `%LOCALAPPDATA%\WispWasp\prompts.json` |
+| Kept prompts | `.wispwasp-data\favourite_prompts.json` | alongside the above |
+| Style presets | `.wispwasp-data\styles.json` | alongside the above |
+| Theme sounds | `.wispwasp-data\sounds\` | generated on first use, not shipped |
 | Crash log | `%USERPROFILE%\WispWasp\crash.log` | same |
+
+Source builds before this layout wrote runtime files directly into the
+repository root. On first source run, WispWasp moves any recognizable legacy
+runtime data into `.wispwasp-data\` when it can do so without overwriting
+anything.
 
 Typed prompts save wherever Settings says; blank means the Desktop, read
 from the registry so OneDrive redirection is honoured.
@@ -1392,9 +1397,19 @@ safety filtering that would block much of what unscripted speech produces.
 longer run, and will fight the app over port 8420 if started alongside it.
 See `legacy/README.md`.
 
-## Backups
+## Recovery and local backups
 
-`backup\<date>-<name>\` snapshots, restored with `restore-backup.bat`,
-which points at the most recent one. It restores whole folders and clears
-stale `.py` files and `__pycache__`, because a leftover module can shadow
-a restored one.
+Git is the source-code recovery mechanism. Before risky work, make a focused
+branch and commit the known-good state. `git status`, `git diff`, and
+`git log --oneline --decorate` should be the first tools used to understand
+what changed before anything is restored.
+
+Local `backup\<date>-<name>\` snapshots can still be useful for generated
+data or experiments that deliberately do not belong in Git. The `backup/`
+folder is intentionally ignored, though, so repository recovery must never
+depend on a hard-coded local snapshot being present.
+
+If a source file needs to be recovered from an earlier commit, preserve any
+current work first, then use Git to inspect or restore that specific version.
+This keeps recovery traceable instead of silently replacing a hand-maintained
+list of files from an increasingly stale snapshot.

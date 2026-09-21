@@ -1,0 +1,22 @@
+WispWasp source-code licensing status
+
+No project-level open-source license has been declared for the WispWasp
+project code in the upstream repository as of September 18, 2026.
+
+Copyright in original project code remains with its respective author(s) and
+contributors. Unless a particular file says otherwise, no permission is
+granted by this repository to use, copy, modify, publish, distribute,
+sublicense, or sell the project code beyond rights that already exist under
+applicable law or the terms of the platform through which the repository is
+made available.
+
+The fact that the source repository is public, or that GitHub permits a
+repository to be forked, is not by itself an open-source license.
+
+Third-party software, libraries, tools, models, media, and other dependencies
+retain their own licenses and are not covered by this notice. See
+THIRD_PARTY_NOTICES.md.
+
+If the copyright holder(s) intend WispWasp to be open source, this file should
+be replaced with the chosen license text only after the people who own the
+relevant rights approve that license.

@@ -1,11 +1,23 @@
 """Checks the speech prompt logic and the ComfyUI backend."""
+import os
 import time
 from pathlib import Path
 
-from avcore.config import Settings
+from avcore.config import APP_DIR, DATA_DIR, Settings
 from avcore import speech, images
 
-print("=== prompt building (must stay verbatim) ===")
+print("=== source runtime data stays out of the repository root ===")
+assert DATA_DIR != APP_DIR
+override = os.environ.get("WISPWASP_DATA_DIR")
+if override:
+    assert DATA_DIR == Path(override)
+    print("  PASS     isolated test data root")
+else:
+    assert DATA_DIR.parent == APP_DIR
+    assert DATA_DIR.name == ".wispwasp-data"
+    print(f"  PASS     {DATA_DIR.name}")
+
+print("\n=== prompt building (must stay verbatim) ===")
 cases = [
     ("Bro, this is live? Put up two fingers.", True),
     ("We are, we are, we are, we are, we are, we are, we are, we are.", False),

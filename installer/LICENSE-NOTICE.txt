@@ -1,75 +1,67 @@
-WispWasp 0.1.0 - please read before installing
+WispWasp - please read before installing
 
 WHAT THIS IS
-WispWasp listens to whatever your PC is playing, transcribes it, and
-generates an image from the words. The newest image is shown on a page you
-can capture in OBS.
+WispWasp listens to audio from your PC, transcribes it, turns what it heard
+into an image prompt, and can publish generated images to a local page for
+OBS.
 
 WHAT IS NOT INCLUDED
-This installer contains the app only, about 250 MB. It does not include:
+The installer contains the WispWasp application. ComfyUI, its Python/PyTorch
+environment, and image models are downloaded separately when local generation
+is selected. They are large and remain separate projects with their own
+licenses.
 
-  - ComfyUI, which does the image generation
-  - PyTorch with CUDA support, roughly 3 GB
-  - An image model, roughly 6.5 GB
+If you already have a compatible ComfyUI installation, WispWasp can use it
+instead of downloading another copy.
 
-Bundling those would make this a 10 GB download. Instead, the app opens on
-a Setup page the first time you run it, and one button fetches all of it.
-Nothing else needs installing first - no Python, no drivers beyond your
-normal NVIDIA one. If the download is interrupted it carries on from where
-it stopped rather than starting again.
-
-If you already have ComfyUI, the app looks for it in the usual places and
-uses it rather than downloading another copy.
-
-WHAT YOU NEED
+WHAT YOU NEED FOR LOCAL GENERATION
   - Windows 10 or 11, 64-bit
-  - An NVIDIA GPU with at least 8 GB of video memory
-  - About 22 GB of free disk space for the download and install
+  - A supported NVIDIA GPU
+  - Enough disk space for ComfyUI and the model you choose
 
-The speech model, about 250 MB, downloads by itself the first time you
-start listening.
+The online image backend does not require ComfyUI or a local image model.
 
 IF SOMETHING GOES WRONG
-Run WispWasp.exe with --selftest. It checks each part and writes a
-report to %USERPROFILE%\WispWasp\selftest.log that says which piece is
-at fault.
+Run WispWasp.exe with --selftest. It checks the packaged application and
+writes a report to %USERPROFILE%\WispWasp\selftest.log.
 
 UNSIGNED BUILD
-This is not code signed, so Windows will probably show a blue
-"Windows protected your PC" screen. Click "More info", then
-"Run anyway". SmartScreen shows this for any installer it has not seen
-before; it is not a report of anything found in the file.
+This build is not code signed. Windows may show a SmartScreen warning because
+the executable does not have an established signing reputation. Only install
+a build obtained from a source you trust.
 
-PRIVACY
-Everything runs on your machine. Audio is recorded in short clips, held
-only long enough to transcribe, and overwritten by the next clip. Nothing
-is uploaded anywhere unless you deliberately switch the image backend to
-the online one in Settings.
+PRIVACY AND NETWORK USE
+Local audio capture and transcription run on the machine.
 
-A NOTE ON WHAT IT GENERATES
-The app generates images from whatever it hears, and it will pick up voice
-chat, videos and other people talking. If you set a "Style" in Settings,
-it is appended to every prompt, including speech that happens to contain
-real people's names. Be careful combining an explicit style with live
-capture, particularly if you are streaming.
+When the local ComfyUI backend is used, image prompts are sent to the local
+ComfyUI service.
+
+When the Pollinations backend is selected, WispWasp sends the image prompt
+and generation request to that external service. WispWasp does not send the
+recorded audio clip to Pollinations.
+
+WispWasp can also contact GitHub, Hugging Face, and Civitai for update checks,
+setup downloads, model metadata, and model downloads when those features are
+used. Those services have their own terms and privacy policies.
 
 WHERE YOUR FILES GO
   Settings and overlay images:  %LOCALAPPDATA%\WispWasp
-  Crash log, if it ever crashes: %USERPROFILE%\WispWasp\crash.log
+  Crash/self-test logs:         %USERPROFILE%\WispWasp
 
-Uninstalling removes the program but leaves your settings and images
-alone.
+Uninstalling the program does not intentionally delete your settings or
+generated images.
 
-THIRD PARTY SOFTWARE
-This app bundles Qt via PySide6 under the LGPL v3, faster-whisper under
-the MIT licence, CTranslate2 under the MIT licence, ONNX Runtime under the
-MIT licence, and Flask under the BSD 3-clause licence. Their licence texts
-are available from their respective projects.
+WISPWASP SOURCE-CODE STATUS
+The upstream WispWasp repository has not declared a project-level open-source
+license. Public source visibility is not itself an open-source license.
+Copyright in project code remains with its respective author(s). See the
+bundled LICENSE file for the current project-level licensing status.
 
-It also includes 7zr.exe, the standalone 7-Zip extractor by Igor Pavlov,
-which is released into the public domain. It is used to unpack the ComfyUI
-download during setup.
+THIRD-PARTY SOFTWARE
+The application bundles third-party libraries and a standalone extraction
+tool, each under its own license. ComfyUI and model files downloaded after
+installation also retain their own licenses.
 
-ComfyUI and the image model are downloaded during setup rather than
-bundled, and are covered by their own licences: ComfyUI under the GPL v3,
-and Stable Diffusion XL under the CreativeML Open RAIL++-M licence.
+See THIRD_PARTY_NOTICES.md in the installed application for the maintained
+engineering inventory. Model-specific terms remain controlling for any model
+you install or download.

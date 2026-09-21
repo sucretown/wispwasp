@@ -22,15 +22,43 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_setuptest")
+tmp = Path("_setuptest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 # Tolerates a leftover: Windows will not delete a folder a live
 # window still has open, so the cleanup at the end can fail.
 tmp.mkdir(parents=True, exist_ok=True)
 
 print("=== hardware and space checks ===")
-gpu_ok, gpu_name = setup.has_nvidia_gpu()
-check("detects the NVIDIA GPU", gpu_ok, gpu_name)
+# The normal suite must run on machines with or without NVIDIA hardware.
+# Exercise both detection branches with controlled process results instead
+# of asserting that the developer's GPU exists on the runner.
+_real_which = setup.shutil.which
+_real_run = setup.subprocess.run
+_real_system_root = setup.os.environ.get("SystemRoot")
+try:
+    setup.shutil.which = lambda _name: None
+    setup.os.environ["SystemRoot"] = str(tmp / "no-windows")
+    gpu_ok, gpu_name = setup.has_nvidia_gpu()
+    check("reports a missing NVIDIA driver cleanly",
+          gpu_ok is False and "NVIDIA" in gpu_name, gpu_name)
+
+    class _GpuProbe:
+        returncode = 0
+        stdout = "Test NVIDIA GPU, 8192 MiB\n"
+
+    setup.shutil.which = lambda name: "nvidia-smi" if name == "nvidia-smi" else None
+    setup.subprocess.run = lambda *args, **kwargs: _GpuProbe()
+    gpu_ok, gpu_name = setup.has_nvidia_gpu()
+    check("recognises a responding NVIDIA driver",
+          gpu_ok is True and "Test NVIDIA GPU" in gpu_name, gpu_name)
+finally:
+    setup.shutil.which = _real_which
+    setup.subprocess.run = _real_run
+    if _real_system_root is None:
+        setup.os.environ.pop("SystemRoot", None)
+    else:
+        setup.os.environ["SystemRoot"] = _real_system_root
+
 check("reports free space", setup.free_space(tmp) > 0,
       setup.human(setup.free_space(tmp)))
 
@@ -49,12 +77,20 @@ check("marks it portable", found and found["portable"] is True)
 check("points at the checkpoints folder",
       found and found["models"].name == "checkpoints")
 
-# A real install on this machine, which is a git clone rather than portable.
-real = setup.find_comfy(Path.home() / "ComfyUI")
-check("finds the real ComfyUI on this machine", real is not None,
+# A plain git clone is the other supported layout. Build a tiny stand-in;
+# the normal suite must not depend on the runner having a personal ComfyUI.
+clone = tmp / "clone-ComfyUI"
+(clone / ".venv" / "Scripts").mkdir(parents=True)
+(clone / "models" / "checkpoints").mkdir(parents=True)
+(clone / "main.py").write_text("x")
+(clone / ".venv" / "Scripts" / "python.exe").write_text("x")
+real = setup.find_comfy(clone)
+check("finds a git-clone install", real is not None,
       str(real["base"]) if real else "not found")
-check("recognises it as a non-portable clone",
+check("recognises a git clone as non-portable",
       real is not None and real["portable"] is False)
+check("uses the clone's virtual-environment Python",
+      real is not None and real["python"] == clone / ".venv" / "Scripts" / "python.exe")
 
 print("\n=== checkpoint detection ignores stubs ===")
 ck = found["models"]

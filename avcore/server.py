@@ -13,6 +13,7 @@ import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, send_file, send_from_directory
+from werkzeug.serving import make_server
 
 
 def port_is_free(port, host="127.0.0.1"):
@@ -45,11 +46,18 @@ class OverlayServer:
         self.app_dir = Path(app_dir or Path(__file__).resolve().parent.parent)
         self.thread = None
         self.error = ""
+        self._httpd = None
+        self._bound_port = None
         self._flask = self._build()
 
     @property
     def port(self):
         return int(self.s.get("server.port", 8420))
+
+    @property
+    def bound_port(self):
+        """The port this server actually owns, if it is running."""
+        return self._bound_port
 
     def _overlay_dir(self):
         return self.s.dir_for("paths.overlay_dir", "output")
@@ -105,38 +113,80 @@ class OverlayServer:
 
     def start(self):
         """
-        Start serving. Returns True on success; on a port clash it records
-        the reason instead of raising, because a busy port is a normal
-        thing to hit (an old listener.py still running) and shouldn't stop
-        the app from opening.
+        Bind and start serving.
+
+        Binding happens before this returns, so True means the port really
+        belongs to this server. The previous Flask development-server path
+        returned first and only tried to bind in the worker thread, which
+        left a race where startup could be reported as successful even when
+        the port could not be opened.
         """
-        if self.thread and self.thread.is_alive():
+        if self.is_running():
             return True
 
-        if not port_is_free(self.port):
+        port = self.port
+        if not port_is_free(port):
             self.error = (
-                f"Port {self.port} is already in use. If listener.py or "
-                f"another copy of the app is running, close it - or pick a "
-                f"different port in Settings.")
+                f"Port {port} is already in use. If listener.py or another "
+                f"copy of the app is running, close it - or pick a different "
+                f"port in Settings.")
             return False
+
+        try:
+            httpd = make_server(
+                "127.0.0.1", port, self._flask, threaded=True)
+        except OSError as exc:
+            # The free-port probe and the real bind cannot be atomic. If
+            # another process wins that tiny race, report it as a normal
+            # startup failure rather than claiming the server is live.
+            self.error = f"Port {port} could not be opened: {exc}"
+            return False
+
+        self._httpd = httpd
+        self._bound_port = port
+        self.error = ""
 
         def serve():
             try:
-                self._flask.run(host="127.0.0.1", port=self.port,
-                                threaded=True, debug=False,
-                                use_reloader=False)
+                httpd.serve_forever()
             except Exception as exc:
                 self.error = str(exc)
 
         self.thread = threading.Thread(
             target=serve, name="av-server", daemon=True)
         self.thread.start()
-        self.error = ""
         return True
 
+    def stop(self, wait=2):
+        """Stop serving and release the port this instance owns."""
+        httpd = self._httpd
+        thread = self.thread
+        if httpd is None:
+            self.thread = None
+            self._bound_port = None
+            return
+
+        try:
+            httpd.shutdown()
+        finally:
+            if thread and thread is not threading.current_thread():
+                thread.join(timeout=wait)
+            httpd.server_close()
+            self._httpd = None
+            self._bound_port = None
+            self.thread = None
+
     def url(self, bare=True):
+        # Settings can change while the process is running. A URL must name
+        # the port the server actually bound, not a newly-selected port that
+        # will only take effect on the next start.
+        port = self._bound_port if self._bound_port is not None else self.port
         suffix = "?bare=1" if bare else ""
-        return f"http://127.0.0.1:{self.port}/overlay.html{suffix}"
+        return f"http://127.0.0.1:{port}/overlay.html{suffix}"
 
     def is_running(self):
-        return bool(self.thread and self.thread.is_alive())
+        return bool(
+            self._httpd is not None
+            and self.thread
+            and self.thread.is_alive()
+        )

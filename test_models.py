@@ -32,7 +32,7 @@ def check(name, ok, detail=""):
     print(f"  {mark}  {name:<52}{('  [' + detail + ']') if detail else ''}")
 
 
-tmp = Path("_modeltest")
+tmp = Path("_modeltest").resolve()
 shutil.rmtree(tmp, ignore_errors=True)
 tmp.mkdir(parents=True, exist_ok=True)
 

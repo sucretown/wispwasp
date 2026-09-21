@@ -19,26 +19,13 @@ function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
 if (-not $SkipTests) {
     Step "Tests"
-    $suites = @("test_wav.py", "test_core2.py", "test_engine.py",
-                "test_server.py", "test_layouts.py", "test_setup.py",
-                "test_install.py", "test_mic.py", "test_process_audio.py", "test_clear.py", "test_catalog.py", "test_models.py", "test_recovery.py", "test_activation.py", "test_options.py", "test_sync.py", "test_favourites.py", "test_confirm.py", "test_customize.py", "test_docs.py")
-    foreach ($t in $suites) {
-        if (-not (Test-Path $t)) { continue }
-        # A suite is judged by its exit code, not by whether it wrote to
-        # stderr. With ErrorActionPreference set to Stop, a single Qt
-        # warning from a passing test was enough to kill the whole build
-        # with no explanation of which test or why.
-        $ErrorActionPreference = "Continue"
-        $out = & $python $t 2>&1
-        $code = $LASTEXITCODE
-        $ErrorActionPreference = "Stop"
-        $line = $out | Select-String -Pattern '^\d+/\d+ passed|all checks passed'
-        if ($code -ne 0) {
-            Write-Host "  $t FAILED" -ForegroundColor Red
-            $out | Select-Object -Last 12
-            exit 1
-        }
-        Write-Host ("  {0,-20} {1}" -f $t, ($line -join ' '))
+    $ErrorActionPreference = "Continue"
+    & $python "tools\run_tests.py"
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($code -ne 0) {
+        Write-Host "tests failed" -ForegroundColor Red
+        exit $code
     }
 }
 
@@ -54,11 +41,15 @@ Step "Checking the build is not stale"
 $exe = Get-Item "dist\WispWasp\WispWasp.exe" -ErrorAction SilentlyContinue
 if (-not $exe) { Write-Host "no build in dist\" -ForegroundColor Red; exit 1 }
 
-# Any source file newer than the executable means dist\ does not match the
-# code, which is the exact situation that ships stale behaviour.
-$sources = Get-ChildItem -Recurse -Include *.py, *.html, *.spec `
-    -Path "avcore", "avgui", "hooks", "app.py", "selftest.py", "overlay.html", "wispwasp.spec" `
-    -ErrorAction SilentlyContinue
+# Any PyInstaller input newer than the executable means dist\ does not
+# match the checkout. Include assets and legal notices too: -SkipApp must
+# never repackage yesterday's icon, helper binary, or licensing files.
+$sources = @(
+    Get-ChildItem -Recurse -File -Include *.py -Path "avcore", "avgui", "hooks"
+    Get-Item "app.py", "selftest.py", "overlay.html", "wispwasp.spec",
+             "LICENSE", "THIRD_PARTY_NOTICES.md", "tools\7zr.exe"
+    Get-ChildItem -Recurse -File -Path "assets"
+)
 $newer = $sources | Where-Object { $_.LastWriteTime -gt $exe.LastWriteTime }
 if ($newer) {
     Write-Host "  These are newer than the build:" -ForegroundColor Red

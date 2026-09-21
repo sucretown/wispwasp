@@ -38,7 +38,7 @@ for a in apps[:10]:
     print(f"     {a['name']:<14} pid {a['pid']:<7} "
           f"{'playing' if a['playing'] else 'idle'}")
 
-tmp = Path("_proctest")
+tmp = Path("_proctest").resolve()
 tmp.mkdir(exist_ok=True)
 
 # A process of our own that plays a tone, so there is something

@@ -90,6 +90,9 @@ def run(log_path):
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
     record("overlay.html is bundled", (base / "overlay.html").exists(),
            str(base / "overlay.html"))
+    for notice in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        record(f"{notice} is bundled", (base / notice).exists(),
+               str(base / notice))
 
     # --- 7z round trip, which is what setup depends on ------------------
     # This is the one worth proving: extraction happens after a 1.8 GB

@@ -13,19 +13,55 @@ def data_dir():
     """
     Where user data lives: settings, images, logs.
 
-    Running from source this is the project folder, which keeps development
-    self-contained. In a frozen build __file__ points inside the temporary
-    unpack folder, which is deleted on exit and may not be writable - so
-    installed copies keep their data under LocalAppData instead.
+    WISPWASP_DATA_DIR is a source-development override used by the test
+    harness and tooling that needs an isolated data root. Frozen/installed
+    builds deliberately ignore it.
+
+    Source checkouts keep their runtime state together under one ignored
+    .wispwasp-data folder. Older source builds wrote directly into the
+    repository root, which is how prompt history, generated theme sounds,
+    and empty settings files ended up looking like source code.
+
+    Frozen builds keep user data under LocalAppData because the PyInstaller
+    unpack directory is temporary and may not be writable.
     """
     if getattr(sys, "frozen", False):
         base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
         d = base / "WispWasp"
         _migrate_old_data(base / "AudioVision", d)
     else:
-        d = APP_DIR
+        override = os.environ.get("WISPWASP_DATA_DIR", "").strip()
+        if override:
+            d = Path(override).expanduser()
+        else:
+            d = APP_DIR / ".wispwasp-data"
+            _migrate_source_data(APP_DIR, d)
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _migrate_source_data(root, new):
+    """Move data written by older source builds out of the Git checkout."""
+    new.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "settings.json",
+        "prompts.json",
+        "favourite_prompts.json",
+        "styles.json",
+        "output",
+        "scratch",
+        "sounds",
+    ):
+        src = root / name
+        dst = new / name
+        try:
+            if src.exists() and not dst.exists():
+                src.replace(dst)
+        except OSError:
+            # Data migration must never prevent the application starting.
+            # If a file is locked or Git still owns it, the old path remains
+            # untouched and the new data folder is used from this run on.
+            pass
 
 
 def _migrate_old_data(old, new):
@@ -115,7 +151,7 @@ DEFAULTS = {
         "autostart": True,
     },
     "paths": {
-        "overlay_dir": "output",  # relative to the app folder
+        "overlay_dir": "output",  # relative to the data folder
         "manual_dir": "",         # blank = Desktop
     },
     "server": {

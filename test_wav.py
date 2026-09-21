@@ -22,7 +22,7 @@ def check(name, cond, detail=""):
           + (f"  [{detail}]" if detail else ""))
 
 
-tmp = Path("_wavtest")
+tmp = Path("_wavtest").resolve()
 tmp.mkdir(exist_ok=True)
 
 
