@@ -407,6 +407,93 @@ check("a clip names the video model",
 check("and shortens to the checkpoint",
       model_label("svd", "svd_xt.safetensors", short=True) == "svd_xt")
 
+print("\n=== acting on several pictures at once ===")
+# Chosen by path rather than by widget, because the grid is rebuilt
+# whenever a filter changes or a page turns.
+_pick_dir = tmp / "picking"
+(_pick_dir / "out").mkdir(parents=True, exist_ok=True)
+_ps = Settings.load(path=_pick_dir / "s.json")
+_ps.set("paths.overlay_dir", str(_pick_dir / "out"))
+_ps.set("paths.manual_dir", str(_pick_dir / "out"))
+_ps.save()
+_pe = Engine(_ps)
+_pe.catalog = Catalog(_pick_dir / "c.json")
+
+for _i in range(5):
+    _shot = _pick_dir / "out" / f"pick{_i}.png"
+    write_png(_shot, 48, 48, (60, 120, 180))
+    _pe.catalog.record(_shot, f"picture {_i}", source="live")
+
+_gp = GalleryPanel(_pe)
+app.processEvents()
+
+check("nothing is chosen to begin with", not _gp._chosen)
+check("and the bar is out of the way", _gp.pick_bar.isHidden(),
+      "the gallery looks as it always did until somebody asks")
+
+_gp._pick(_gp._visible[0], True)
+_gp._pick(_gp._visible[1], True)
+check("choosing two is counted", len(_gp._chosen) == 2)
+check("and said in words", _gp.pick_count.text() == "2 chosen",
+      _gp.pick_count.text())
+
+print("\n  the buttons say which way they will go:")
+check("Favourite, while none are", _gp.pick_fav.text() == "Favourite")
+_gp._bulk_favourite()
+app.processEvents()
+_gp._pick(_gp._visible[0], True)
+_gp._pick(_gp._visible[1], True)
+_gp._sync_picks()
+check("Unfavourite, once they all are",
+      _gp.pick_fav.text() == "Unfavourite",
+      "a mixed selection becomes all-on, which is the predictable "
+      "reading of pressing Favourite")
+
+_marked = sum(1 for _p in _gp._visible
+              if (_pe.catalog.lookup(_p) or {}).get("favourite"))
+check("both were marked", _marked == 2, str(_marked))
+
+print("\n  censoring works the same way:")
+_gp._bulk_censor()
+app.processEvents()
+_hidden = sum(1 for _p in _gp._visible
+              if (_pe.catalog.lookup(_p) or {}).get("censored"))
+check("both were censored", _hidden == 2, str(_hidden))
+
+print("\n  select all, and clearing:")
+_gp._pick_all()
+check("everything showing is chosen",
+      len(_gp._chosen) == len(_gp._visible))
+_gp._pick_none()
+check("and clearing empties it", not _gp._chosen)
+
+print("\n  a picture the filters hide does not stay chosen:")
+_gp._pick(_gp._visible[0], True)
+_gp.filters.name = "pick0"
+_gp._apply_filters()
+_gp._sync_picks()
+_still = [_p for _p in _gp._chosen]
+check("it is dropped from the selection",
+      all(_p in set(_gp._visible) for _p in _still),
+      "otherwise Delete would take something nobody can see")
+_gp.filters.name = ""
+_gp._apply_filters()
+
+print("\n  deleting asks once, not once each:")
+from avgui.dialogs import ConfirmBulkDelete
+
+_dialog = ConfirmBulkDelete(4)
+_words = " ".join(l.text() for l in _dialog.findChildren(QLabel))
+check("it says how many", "Delete 4 images?" in _words, _words[:40])
+check("and that they leave the disk",
+      "removed from disk" in _words)
+check("keeping them is the default",
+      {b.objectName(): b for b in _dialog.findChildren(QPushButton)}
+      ["denyButton"].isDefault())
+_dialog.reject()
+
+_pe.shutdown()
+
 bad = [n for n, ok in results if not ok]
 
 

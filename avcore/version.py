@@ -8,7 +8,7 @@ filename typed out separately - two places to change and one of them
 easy to forget.
 """
 
-__version__ = "0.1.9"
+__version__ = "0.1.9.1"
 
 # Where the app looks to find out whether a newer build exists. Filled
 # in once the releases are published; an empty value simply means the
@@ -36,17 +36,12 @@ AUTHOR = "Cinnamoroll"
 # here rather than parsed out of the release notes so that the app can
 # say what it is without reaching for the network.
 CHANGES = [
-    "Cut-out images: remove the background so a picture floats on your "
-    "scene instead of covering it. Turn it on in Setup.",
-    "Safe mode: one tick that steers away from explicit images, refuses "
-    "prompts asking for them, hides adult models, blurs anything it is "
-    "unsure about and keeps flagged pictures off the overlay.",
-    "LoRAs: browse, download and apply them, with a strength for each. "
-    "Ones that will not work say so in red.",
-    "A picker for SD 1.5 or SDXL beside the model, which lists only the "
-    "models that match.",
-    "The overlay page is transparent now, so OBS shows your scene "
-    "behind it rather than black.",
+    "Choose several pictures in the gallery at once, then favourite, "
+    "censor or delete the lot.",
+    "Get more models opens again - it had stopped doing anything at "
+    "all when the browser learned to show LoRAs.",
+    "Leaving the gallery now closes a playing clip, instead of leaving "
+    "it over whatever page you moved to.",
 ]
 
 

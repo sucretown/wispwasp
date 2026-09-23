@@ -252,8 +252,15 @@ class ModelBrowser(QDialog):
 
     installed_changed = Signal()
 
-    def __init__(self, settings, kind="Checkpoint", parent=None):
-        """`kind` is Checkpoint or LORA - the same dialog serves both."""
+    def __init__(self, settings, *, kind="Checkpoint", parent=None):
+        """
+        `kind` is keyword-only on purpose.
+
+        It was added in second place, where callers had been passing a
+        parent widget positionally for months. Making it keyword-only
+        turns that mistake into an immediate TypeError rather than a
+        widget quietly being treated as a string.
+        """
         super().__init__(parent)
         self.s = settings
         self.kind = kind

@@ -1102,7 +1102,12 @@ class SettingsPanel(QWidget):
         """
         from .model_browser import ModelBrowser
 
-        browser = ModelBrowser(self.s, self)
+        # Named, not positional. When the browser learned to show
+        # LoRAs it gained a `kind` argument in second place, so this
+        # call was handing it the panel as the kind - which failed on
+        # kind.upper() inside a slot, where Qt swallows the error and
+        # the button simply does nothing.
+        browser = ModelBrowser(self.s, parent=self)
         browser.installed_changed.connect(self._reload_checkpoints)
         browser.exec()
         self._reload_checkpoints()

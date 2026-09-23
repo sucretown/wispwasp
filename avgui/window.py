@@ -535,6 +535,14 @@ class MainWindow(QMainWindow):
             # it with you rather than stranding it over another page.
             viewer.collapse()
 
+        # The clip player covers the gallery in the same way and was
+        # left behind: leaving the page stranded a video playing over
+        # whatever came next.
+        if key != "gallery":
+            close_clip = getattr(gallery, "_close_clip", None)
+            if close_clip is not None:
+                close_clip()
+
         # A model may have been installed, or the size changed in
         # Settings, since these were last looked at.
         if key in ("live", "prompt"):

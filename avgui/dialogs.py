@@ -755,3 +755,52 @@ class ConfirmAnimate(QDialog):
         """The frames and shape chosen."""
         return (self.length.currentData() or 25,
                 self.shape.currentData() or "landscape")
+
+
+class ConfirmBulkDelete(QDialog):
+    """
+    Asks once before deleting a batch.
+
+    Once rather than once per picture: twenty dialogs is not twenty
+    times the safety, it is twenty times the clicking, and people stop
+    reading by the third. So this one says the number plainly and makes
+    keeping them the default.
+    """
+
+    def __init__(self, count, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Delete images")
+        self.setModal(True)
+        self.setMinimumWidth(420)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(20, 18, 20, 16)
+        outer.setSpacing(12)
+
+        title = QLabel(
+            f"Delete {count} images?" if count != 1
+            else "Delete this image?")
+        title.setObjectName("dialogTitle")
+        outer.addWidget(title)
+
+        body = QLabel(
+            "They are removed from disk, not just from the gallery, and "
+            "this cannot be undone.\n\n"
+            "Anything on the overlay stays there until it is replaced.")
+        body.setWordWrap(True)
+        body.setObjectName("fieldLabel")
+        outer.addWidget(body)
+
+        row = QHBoxLayout()
+        row.addStretch(1)
+        deny = QPushButton("Keep them" if count != 1 else "Keep it")
+        deny.setObjectName("denyButton")
+        deny.clicked.connect(self.reject)
+        row.addWidget(deny)
+        go = QPushButton(f"Delete {count}" if count != 1 else "Delete")
+        go.setObjectName("confirmButton")
+        go.clicked.connect(self.accept)
+        row.addWidget(go)
+        outer.addLayout(row)
+        deny.setDefault(True)
+        deny.setFocus()

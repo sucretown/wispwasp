@@ -1,8 +1,8 @@
 {
-  "version": "0.1.9",
-  "url": "https://github.com/sucretown/wispwasp/releases/download/v0.1.9/WispWasp-0.1.9-setup.exe",
+  "version": "0.1.9.1",
+  "url": "https://github.com/sucretown/wispwasp/releases/download/v0.1.9.1/WispWasp-0.1.9.1-setup.exe",
   "page": "https://github.com/sucretown/wispwasp/releases/latest",
-  "sha256": "38244c4a95a69a44a4c30eddf6cfe69756beddef5a6909c797dfe04743a6db74",
-  "size": 93895405,
-  "notes": "Cut-out images, LoRAs, safe mode, and a transparent overlay."
+  "sha256": "0d63826169050c8ea1e36a825f79a778961769662fb08b22daffe6da418679cb",
+  "size": 93892790,
+  "notes": "Choose several gallery images at once, plus two fixes."
 }

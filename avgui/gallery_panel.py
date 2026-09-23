@@ -14,6 +14,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QColor, QFontMetrics, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
     QProgressBar,
     QApplication, QComboBox, QDialog, QGridLayout, QHBoxLayout,
     QLabel, QLineEdit, QMenu, QPushButton, QScrollArea, QVBoxLayout, QWidget,
@@ -67,13 +68,14 @@ class AnimateWorker(QThread):
 class Thumb(QWidget):
     def __init__(self, path, on_push, entry=None, on_changed=None,
                  engine=None, on_expand=None, on_animate=None,
-                 parent=None):
+                 on_pick=None, chosen=(), parent=None):
         super().__init__(parent)
         self.path = Path(path)
         self.engine = engine
         self.on_changed = on_changed or (lambda: None)
         self.on_expand = on_expand
         self.on_animate = on_animate
+        self.on_pick = on_pick or (lambda _path, _on: None)
         self.entry = entry or {}
         self.censored = bool(self.entry.get("censored"))
         col = QVBoxLayout(self)
@@ -132,6 +134,17 @@ class Thumb(QWidget):
 
         row = QHBoxLayout()
         row.setSpacing(4)
+
+        # Always visible rather than on hover: a tick that only appears
+        # when the mouse is over the picture is one nobody finds, and
+        # the row has space for it.
+        self.pick = QCheckBox()
+        self.pick.setToolTip("Choose this one, to act on several at once")
+        self.pick.setChecked(self.path in chosen)
+        self.pick.toggled.connect(
+            lambda on: self.on_pick(self.path, bool(on)))
+        row.addWidget(self.pick)
+
         name = QLabel()
         name.setObjectName("fieldLabel")
         name.setToolTip(str(self.path))
@@ -140,7 +153,7 @@ class Thumb(QWidget):
         # the part worth losing.
         metrics = QFontMetrics(name.font())
         name.setText(metrics.elidedText(self.path.name, Qt.ElideMiddle,
-                                        THUMB.width() - 56))
+                                        THUMB.width() - 78))
         row.addWidget(name, 1)
         push = QPushButton("Show")
         push.setToolTip("Put this image on the overlay")
@@ -335,6 +348,11 @@ class GalleryPanel(QWidget):
         self.engine = engine
         self._all = []         # every image found, newest first
         self._visible = []     # what the filters allow
+        # Chosen by path, not by widget: the grid is rebuilt whenever a
+        # filter changes or a page turns, and a widget reference would
+        # be forgotten the moment somebody narrowed the list to find the
+        # next picture they wanted.
+        self._chosen = set()
         self.filters = Filters()
         self.viewer = None
         self._cols = COLS      # recomputed from the panel width
@@ -393,6 +411,10 @@ class GalleryPanel(QWidget):
         row.addWidget(self.purge_btn)
         outer.addWidget(bar)
         outer.addWidget(self._filter_bar())
+        # Under the filters, because what it acts on is whatever they
+        # are showing.
+        self.pick_bar = self._pick_bar()
+        outer.addWidget(self.pick_bar)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -565,7 +587,8 @@ class GalleryPanel(QWidget):
             self.grid.addWidget(
                 Thumb(path, self._push, entry, on_changed=self._rebuild_all,
                       engine=self.engine, on_expand=self._open_viewer,
-                     on_animate=self._animate),
+                     on_animate=self._animate,
+                      on_pick=self._pick, chosen=self._chosen),
                 i // cols, i % cols)
 
         total = len(self._visible)
@@ -811,6 +834,154 @@ class GalleryPanel(QWidget):
         """The gallery's own area, expressed in the window."""
         window = self.window()
         return QRect(self.mapTo(window, QPoint(0, 0)), self.size())
+
+    def _pick_bar(self):
+        """
+        The row of things that can be done to a selection.
+
+        Hidden until something is chosen, so the gallery looks exactly
+        as it did before for anybody who never uses this.
+        """
+        bar = QWidget()
+        bar.setObjectName("pickBar")
+        row = QHBoxLayout(bar)
+        row.setContentsMargins(0, 2, 0, 6)
+        row.setSpacing(8)
+
+        self.pick_count = QLabel("")
+        row.addWidget(self.pick_count)
+
+        all_btn = QPushButton("Select all")
+        all_btn.setToolTip("Choose everything the filters are showing")
+        all_btn.clicked.connect(self._pick_all)
+        row.addWidget(all_btn)
+
+        clear_btn = QPushButton("Clear")
+        clear_btn.clicked.connect(self._pick_none)
+        row.addWidget(clear_btn)
+
+        row.addStretch(1)
+
+        self.pick_fav = QPushButton("Favourite")
+        self.pick_fav.clicked.connect(self._bulk_favourite)
+        row.addWidget(self.pick_fav)
+
+        self.pick_censor = QPushButton("Censor")
+        self.pick_censor.clicked.connect(self._bulk_censor)
+        row.addWidget(self.pick_censor)
+
+        self.pick_delete = QPushButton("Delete")
+        self.pick_delete.setObjectName("denyButton")
+        self.pick_delete.clicked.connect(self._bulk_delete)
+        row.addWidget(self.pick_delete)
+
+        bar.hide()
+        return bar
+
+    def _pick(self, path, on):
+        """
+        Remember a choice, by path rather than by widget.
+
+        The grid is rebuilt whenever a filter changes or a page turns.
+        """
+        if on:
+            self._chosen.add(Path(path))
+        else:
+            self._chosen.discard(Path(path))
+        self._sync_picks()
+
+    def _sync_picks(self):
+        """Show what is chosen, and what can be done with it."""
+        bar = getattr(self, "pick_bar", None)
+        if bar is None:
+            return
+
+        # Only what the filters are showing counts: something hidden
+        # should not stay quietly selected for a Delete nobody can see.
+        self._chosen &= set(self._visible)
+        count = len(self._chosen)
+        bar.setVisible(bool(count))
+        if not count:
+            return
+
+        self.pick_count.setText(
+            f"{count} chosen" if count > 1 else "1 chosen")
+
+        catalog = getattr(self.engine, "catalog", None)
+        if catalog is None:
+            return
+        # The buttons say which way they will go rather than "toggle":
+        # a mixed selection becomes all-on, which is the predictable
+        # reading of pressing Favourite.
+        favoured = sum(1 for p in self._chosen
+                       if (catalog.lookup(p) or {}).get("favourite"))
+        censored = sum(1 for p in self._chosen
+                       if (catalog.lookup(p) or {}).get("censored"))
+        self.pick_fav.setText(
+            "Unfavourite" if favoured == count else "Favourite")
+        self.pick_censor.setText(
+            "Uncensor" if censored == count else "Censor")
+
+    def _pick_all(self):
+        """Choose everything the filters are currently showing."""
+        self._chosen = set(self._visible)
+        self._rebuild()
+        self._sync_picks()
+
+    def _pick_none(self):
+        self._chosen.clear()
+        self._rebuild()
+        self._sync_picks()
+
+    def _bulk_favourite(self):
+        catalog = getattr(self.engine, "catalog", None)
+        if catalog is None or not self._chosen:
+            return
+        wanted = self.pick_fav.text() == "Favourite"
+        for path in sorted(self._chosen):
+            catalog.set_favourite(path, wanted)
+        self._say(f"{len(self._chosen)} "
+                  f"{'favourited' if wanted else 'unfavourited'}.")
+        self._rebuild_all()
+
+    def _bulk_censor(self):
+        catalog = getattr(self.engine, "catalog", None)
+        if catalog is None or not self._chosen:
+            return
+        wanted = self.pick_censor.text() == "Censor"
+        for path in sorted(self._chosen):
+            catalog.set_censored(path, wanted)
+        self._say(f"{len(self._chosen)} "
+                  f"{'censored' if wanted else 'uncensored'}.")
+        self._rebuild_all()
+
+    def _bulk_delete(self):
+        """
+        Delete everything chosen, having asked once.
+
+        Once for the batch rather than once per picture: twenty dialogs
+        is not twenty times the safety, it is twenty times the clicking,
+        and people stop reading by the third.
+        """
+        from .dialogs import ConfirmBulkDelete
+
+        if not self._chosen:
+            return
+        if ConfirmBulkDelete(len(self._chosen),
+                             self).exec() != QDialog.Accepted:
+            return
+
+        gone = failed = 0
+        for path in sorted(self._chosen):
+            try:
+                Path(path).unlink()
+                gone += 1
+            except OSError:
+                failed += 1
+        self._chosen.clear()
+        self._say(f"Deleted {gone}." if not failed
+                  else f"Deleted {gone}; {failed} could not be removed.")
+        self._rebuild_all()
 
     def _say(self, message):
         """

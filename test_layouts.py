@@ -479,6 +479,39 @@ check("and the list is rebuilt when it closes",
       "a LoRA that has just arrived should be tickable without closing "
       "the popup and opening it again")
 
+print("\n=== two buttons that did nothing ===")
+# Both were the same shape: something failing inside a slot, where Qt
+# swallows the exception and the control simply looks dead.
+import inspect as _inspect
+
+from avgui.model_browser import ModelBrowser
+
+_signature = _inspect.signature(ModelBrowser.__init__)
+_kind = _signature.parameters.get("kind")
+check("the browser's kind is keyword-only",
+      _kind is not None and _kind.kind is _inspect.Parameter.KEYWORD_ONLY,
+      "it was added in second place, where callers had been passing a "
+      "parent positionally - so Settings handed it a widget as the kind")
+
+_panel_source = Path("avgui/settings_panel.py").read_text(encoding="utf-8")
+check("nothing calls it positionally any more",
+      "ModelBrowser(self.s, self)" not in _panel_source,
+      "the call that made Get more models do nothing")
+check("and every call names its arguments",
+      _panel_source.count("ModelBrowser(self.s, parent=")
+      + _panel_source.count('ModelBrowser(self.s, kind=') >= 2)
+
+print("\n  leaving the gallery takes the clip player with you:")
+_window_source = Path("avgui/window.py").read_text(encoding="utf-8")
+check("switching panel closes it",
+      "_close_clip" in _window_source,
+      "it covers the gallery like the image viewer, and was left "
+      "playing over whatever came next")
+check("beside the viewer it sits with",
+      _window_source.index("_close_clip")
+      > _window_source.index("viewer.collapse"),
+      "the same rule, in the same place")
+
 bad = [n for n, ok in results if not ok]
 print(f"\n{len(results) - len(bad)}/{len(results)} passed")
 if bad:
