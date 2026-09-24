@@ -665,11 +665,13 @@ class ConfirmAnimate(QDialog):
     ComfyUI down rather than merely running slowly.
     """
 
-    def __init__(self, name, shape="landscape", parent=None):
+    def __init__(self, name, shape="landscape", settings=None,
+                 parent=None):
         super().__init__(parent)
         from avcore.video import LENGTHS, SHAPE_NAMES, plan
 
         self._plan = plan
+        self._settings = settings
         self.setWindowTitle("Animate image")
         self.setModal(True)
         self.setMinimumWidth(480)
@@ -744,12 +746,27 @@ class ConfirmAnimate(QDialog):
         """Say what the current choice will produce, and how long it takes."""
         frames = self.length.currentData() or 25
         shape = self.shape.currentData() or "landscape"
-        width, height, seconds, estimate = self._plan(frames, shape)
+        # Sized for the card this will actually run on, which may be
+        # smaller than the one the table was measured against.
+        width, height, seconds, estimate = self._plan(
+            frames, shape, self._settings)
         minutes, rest = divmod(int(estimate), 60)
-        self.detail.setText(
-            f"{seconds:g} seconds of video at {width} x {height}, "
-            f"about {minutes} minute{'s' if minutes != 1 else ''} "
-            f"{rest} seconds to make.")
+        said = (f"{seconds:g} seconds of video at {width} x {height}, "
+                f"about {minutes} minute{'s' if minutes != 1 else ''} "
+                f"{rest} seconds to make.")
+
+        from avcore.video import LENGTHS, SIZES
+
+        sizes = SIZES.get(shape) or SIZES["landscape"]
+        measured = dict(zip((count for count, _s, _l, _e in LENGTHS),
+                            sizes)).get(frames)
+        if measured and (width, height) != measured:
+            # Worth saying: somebody who read the release notes will
+            # expect the bigger number, and silence would look like a
+            # mistake rather than a kindness.
+            said += ("  Made smaller to fit this graphics card - asking "
+                     "for more than it can hold stops ComfyUI.")
+        self.detail.setText(said)
 
     def choice(self):
         """The frames and shape chosen."""

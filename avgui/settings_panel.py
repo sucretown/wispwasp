@@ -372,11 +372,17 @@ class SettingsPanel(QWidget):
 
         pick_row = QHBoxLayout()
         pick_row.setSpacing(8)
-        pick_row.addWidget(self.device, 1)
+        # The picker took the whole row, leaving Refresh apps against
+        # the far edge with a stretch of empty space between it and the
+        # thing it refreshes. Device names are long, so it still gets
+        # most of the width - just not all of it.
+        self.device.setMaximumWidth(340)
+        pick_row.addWidget(self.device)
         refresh_apps = QPushButton("Refresh apps")
         refresh_apps.setToolTip("Look again for running applications")
         refresh_apps.clicked.connect(self._refresh_apps)
         pick_row.addWidget(refresh_apps)
+        pick_row.addStretch(1)
         rows.addRow("Listen to", pick_row)
 
         # --- how a clip is decided --------------------------------------
@@ -853,10 +859,15 @@ class SettingsPanel(QWidget):
         row.setSpacing(8)
 
         self.profile_pick = QComboBox()
+        # Wide enough to read a name, not so wide that it shoves Load
+        # and Delete to the far side of the panel. People reported
+        # having to hunt for the button belonging to the row they were
+        # looking at.
         self.profile_pick.setMinimumWidth(200)
+        self.profile_pick.setMaximumWidth(240)
         self.profile_pick.currentIndexChanged.connect(
             lambda _i: self._sync_profiles())
-        row.addWidget(self.profile_pick, 1)
+        row.addWidget(self.profile_pick)
 
         self.profile_load = QPushButton("Load")
         self.profile_load.clicked.connect(self._load_profile)
@@ -870,20 +881,23 @@ class SettingsPanel(QWidget):
         self.profile_delete.setObjectName("denyButton")
         self.profile_delete.clicked.connect(self._delete_profile)
         row.addWidget(self.profile_delete)
+        row.addStretch(1)
 
         self.form.addLayout(row)
 
         reset_row = QHBoxLayout()
-        self.profile_note = QLabel("")
-        self.profile_note.setObjectName("fieldLabel")
-        self.profile_note.setWordWrap(True)
-        reset_row.addWidget(self.profile_note, 1)
         reset_btn = QPushButton("Reset to defaults")
         reset_btn.setObjectName("denyButton")
         reset_btn.setToolTip(
             "Put every setting back to how the app ships")
         reset_btn.clicked.connect(self._reset_settings)
         reset_row.addWidget(reset_btn)
+
+        # The note reads after the button rather than pushing it away.
+        self.profile_note = QLabel("")
+        self.profile_note.setObjectName("fieldLabel")
+        self.profile_note.setWordWrap(True)
+        reset_row.addWidget(self.profile_note, 1)
         self.form.addLayout(reset_row)
 
         self._reload_profiles()

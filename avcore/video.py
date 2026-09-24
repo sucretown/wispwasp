@@ -61,6 +61,69 @@ SHAPE_NAMES = [
 ]
 
 
+# How much work a card can hold, as frames multiplied by pixels.
+#
+# Pinned by every measurement taken on an 11.94 GiB card, not two of
+# them. Four configurations finished:
+#
+#     25 frames at 1024x576   14.7M     50 at 768x432   16.6M
+#     75 frames at  640x360   17.3M    100 at 512x288   14.7M
+#
+# and one took the GPU down with an illegal memory access, killing
+# ComfyUI with it:
+#
+#     50 frames at 1024x576   29.5M
+#
+# So the budget must clear 17.3M on 11.94 GiB - 1.45M per GiB - or a
+# configuration that demonstrably works would be refused, and it must
+# stay well below 2.47M per GiB or the one that crashes gets offered.
+# 1.5M keeps all four and sits at 60% of the crash threshold.
+#
+# An earlier 1.25M looked safe and quietly downgraded the 5s option
+# below what this very machine had been measured doing, which is how a
+# margin turns into a bug of its own.
+BUDGET_PER_GIB = 1_500_000
+
+# Sizes to fall back through when a card cannot hold the measured one.
+# Each keeps the shape and steps down by about a third of the pixels.
+LADDERS = {
+    "landscape": [(1024, 576), (896, 504), (768, 432), (640, 360),
+                  (512, 288), (448, 256), (384, 216)],
+    "portrait": [(576, 1024), (504, 896), (432, 768), (360, 640),
+                 (288, 512), (256, 448), (216, 384)],
+    "square": [(768, 768), (672, 672), (576, 576), (480, 480),
+               (384, 384), (320, 320), (288, 288)],
+}
+
+
+def card_vram(settings=None):
+    """
+    How much video memory the card has, in GiB, or None.
+
+    Asked of ComfyUI rather than guessed: it is already running the
+    model and already knows. None means it could not be asked, and
+    callers treat that as "assume the machine this was measured on"
+    rather than refusing to work.
+    """
+    import json
+    import urllib.request
+
+    url = ((settings.get("comfyui.url") if settings else None)
+           or "http://127.0.0.1:8188").rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{url}/system_stats", timeout=8) as r:
+            stats = json.loads(r.read())
+    except Exception:
+        return None
+
+    best = 0
+    for device in stats.get("devices") or []:
+        total = device.get("vram_total") or 0
+        if isinstance(total, int):
+            best = max(best, total)
+    return best / 1_073_741_824 if best else None
+
+
 def shape_for(width, height):
     """Which of the three shapes a picture is closest to."""
     if not width or not height:
@@ -73,19 +136,57 @@ def shape_for(width, height):
     return "square"
 
 
-def plan(frames, shape):
+def plan(frames, shape, settings=None):
     """
-    The size and the estimate for one choice.
+    The size and the estimate for one choice, for this card.
 
     Returns (width, height, seconds_of_video, estimated_seconds).
+
+    The measured size is the ceiling, never the floor. A card smaller
+    than the one these numbers came from gets a smaller frame rather
+    than a crash: asking for more than it can hold does not fail
+    politely, it takes the GPU down and ComfyUI with it.
     """
     sizes = SIZES.get(shape) or SIZES["landscape"]
-    for index, (count, seconds, _label, estimate) in enumerate(LENGTHS):
+    width = height = None
+    seconds = frames / 10
+    estimate = LENGTHS[0][3]
+    for index, (count, secs, _label, est) in enumerate(LENGTHS):
         if count == frames:
             width, height = sizes[min(index, len(sizes) - 1)]
-            return width, height, seconds, estimate
-    width, height = sizes[0]
-    return width, height, frames / 10, LENGTHS[0][3]
+            seconds, estimate = secs, est
+            break
+    if width is None:
+        width, height = sizes[0]
+
+    vram = card_vram(settings)
+    if vram is None:
+        return width, height, seconds, estimate
+
+    budget = vram * BUDGET_PER_GIB
+    if frames * width * height <= budget:
+        return width, height, seconds, estimate
+
+    ladder = LADDERS.get(shape) or LADDERS["landscape"]
+    for candidate_w, candidate_h in ladder:
+        if candidate_w > width:
+            continue          # never larger than what was measured
+        if frames * candidate_w * candidate_h <= budget:
+            return candidate_w, candidate_h, seconds, estimate
+
+    # Nothing on the ladder fits, so the smallest is offered with the
+    # truth about it left to the caller to report.
+    smallest = ladder[-1]
+    return smallest[0], smallest[1], seconds, estimate
+
+
+def fits(frames, shape, settings=None):
+    """Whether this length can be made at all on this card."""
+    vram = card_vram(settings)
+    if vram is None:
+        return True
+    width, height, _s, _e = plan(frames, shape, settings)
+    return frames * width * height <= vram * BUDGET_PER_GIB
 
 
 def best_shape(width, height):
@@ -265,6 +366,14 @@ class VideoBackend:
             response.raise_for_status()
             return response.json().get("name") or source.name
         except Exception as exc:
+            # The raw connection error names a port and a WinError,
+            # which tells somebody nothing about what to do next.
+            if "refused" in str(exc).lower() or "10061" in str(exc):
+                raise GenerationError(
+                    "ComfyUI is not running. It stops if a clip asks "
+                    "for more than the graphics card can hold - start "
+                    "it again from Setup, and try a shorter clip."
+                ) from exc
             raise GenerationError(
                 f"Could not hand the image to ComfyUI: {exc}") from exc
 
@@ -369,7 +478,15 @@ class VideoBackend:
                 messages = status.get("messages", [])
                 if _was_interrupted(messages):
                     raise GenerationError("cancelled")
-                raise GenerationError(f"render failed: {_why(messages)}")
+                why = _why(messages)
+                if "illegal memory access" in why.lower() \
+                        or "out of memory" in why.lower():
+                    raise GenerationError(
+                        "The graphics card ran out of room making this "
+                        "clip, which usually stops ComfyUI as well. Try "
+                        "a shorter clip - they are made smaller as well "
+                        "as shorter, so there is more headroom.")
+                raise GenerationError(f"render failed: {why}")
 
             clip = poster = None
             for key, node in entry.get("outputs", {}).items():

@@ -1017,12 +1017,13 @@ class GalleryPanel(QWidget):
         picture = QPixmap(str(source))
         shape = shape_for(picture.width(), picture.height())
 
-        dialog = ConfirmAnimate(Path(source).name, shape, self)
+        dialog = ConfirmAnimate(Path(source).name, shape,
+                                self.engine.s, self)
         if dialog.exec() != QDialog.Accepted:
             return
 
         frames, shape = dialog.choice()
-        _w, _h, _seconds, estimate = plan(frames, shape)
+        _w, _h, _seconds, estimate = plan(frames, shape, self.engine.s)
         self.engine.s.set("video.frames", frames)
         self.engine.s.set("video.shape", shape)
         self.engine.s.save()

@@ -35,13 +35,21 @@ class SetupWorker(QObject):
         self._cancel.set()
 
     def run(self):
-        inst = avsetup.Installer(
-            self.s,
-            on_progress=lambda **kw: self.progress.emit(kw),
-            on_step=lambda key, text: self.step.emit(key, text),
-            cancel=self._cancel.is_set,
-        )
+        """
+        Install, and always say so.
+
+        Building the Installer used to sit outside the try, so anything
+        raised there ended the thread without a word - leaving the page
+        showing a progress bar for work that was not happening, or
+        nothing at all for work that was.
+        """
         try:
+            inst = avsetup.Installer(
+                self.s,
+                on_progress=lambda **kw: self.progress.emit(kw),
+                on_step=lambda key, text: self.step.emit(key, text),
+                cancel=self._cancel.is_set,
+            )
             inst.run(root=self.root)
         except avsetup.SetupCancelled:
             self.finished.emit(False, "Stopped. Anything downloaded so far "
@@ -1119,10 +1127,33 @@ class SetupPanel(QWidget):
         """
         from avcore.setup import installed_tiers
 
-        if self.thread and self.thread.is_alive():
-            return
         here = tuple(installed_tiers(self.s))
-        if here != getattr(self, "_last_seen_models", None):
+        changed = here != getattr(self, "_last_seen_models", None)
+
+        if self.thread and self.thread.is_alive():
+            # A full refresh would fight the running install for the
+            # status line, but the rows themselves are cheap and are
+            # what somebody is watching: a model that has just landed
+            # should say so while the rest of the work carries on.
+            if changed:
+                self._last_seen_models = here
+                self._sync_tiers()
+            return
+
+        # The thread has ended. If the page is still dressed for an
+        # install, something finished without saying so - which is how
+        # a download that worked perfectly left the page insisting the
+        # model was not installed until the app was restarted.
+        if self.bar.isVisible() or not self.install_btn.isVisible():
+            self.bar.hide()
+            self.cancel_btn.hide()
+            self.install_btn.show()
+            self.recheck_btn.show()
+            self.browse.setEnabled(True)
+            self.refresh()
+            return
+
+        if changed:
             self._last_seen_models = here
             self.refresh()
 

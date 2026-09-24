@@ -914,6 +914,19 @@ class Engine:
         from .video import VideoBackend
 
         source = Path(source)
+
+        # A clip can take the GPU down with it - an illegal memory
+        # access kills ComfyUI outright - and the next attempt then
+        # meets a refused connection, which reads as the app being
+        # broken rather than as something needing restarting. The
+        # listening cycle has always brought it back; this path never
+        # did.
+        if not self._ensure_comfy():
+            raise GenerationError(
+                "ComfyUI is not running and could not be started. It "
+                "sometimes stops after a clip that asked too much of "
+                "the graphics card - try a shorter one.")
+
         backend = VideoBackend(self.s)
         if not backend.available():
             raise GenerationError(

@@ -1109,6 +1109,104 @@ check("where gigabytes would have read as nothing",
       f"{13_631_488 / 1_000_000_000:.1f}" == "0.0",
       "the first 95MB of a 9.6GB file round to nought per cent")
 
+print("\n=== a clip is sized for the card, not for one machine ===")
+# Asking for more than a card can hold does not fail politely. It raises
+# an illegal memory access, takes the GPU down and kills ComfyUI with
+# it - so the next attempt meets a refused connection and looks like a
+# different bug entirely.
+import avcore.video as _video
+from avcore.video import BUDGET_PER_GIB, LENGTHS, SIZES, plan
+
+_real_vram = _video.card_vram
+try:
+    _video.card_vram = lambda *a, **k: 11.94
+    _kept = all(
+        plan(frames, "landscape", sv)[:2] == measured
+        for (frames, _s, _l, _e), measured
+        in zip(LENGTHS, SIZES["landscape"]))
+    check("every configuration measured working is still offered",
+          _kept,
+          "a margin that quietly downgrades a proven option is a bug "
+          "of its own")
+
+    check("and the one that crashed is refused",
+          50 * 1024 * 576 > 11.94 * BUDGET_PER_GIB,
+          "50 frames at 1024x576 is what took the GPU down")
+
+    _video.card_vram = lambda *a, **k: 8.0
+    _small = plan(25, "landscape", sv)
+    check("a smaller card is given a smaller frame",
+          _small[0] < 1024,
+          f"{_small[0]}x{_small[1]} rather than 1024x576")
+    check("rather than being refused outright",
+          _small[0] > 0 and _small[1] > 0,
+          "something it can do beats nothing it can")
+
+    _video.card_vram = lambda *a, **k: 24.0
+    _big = plan(25, "landscape", sv)
+    check("a larger card is not pushed past what was measured",
+          _big[:2] == SIZES["landscape"][0],
+          "the table is a ceiling, not a starting point")
+
+    _video.card_vram = lambda *a, **k: None
+    _unknown = plan(25, "landscape", sv)
+    check("and an unknown card gets the measured size",
+          _unknown[:2] == SIZES["landscape"][0],
+          "refusing to work because the card cannot be identified "
+          "would be worse than assuming the usual one")
+finally:
+    _video.card_vram = _real_vram
+
+print("\n  what happens when it dies anyway:")
+_video_text = Path("avcore/video.py").read_text(encoding="utf-8")
+check("a refused connection explains itself",
+      "ComfyUI is not running" in _video_text,
+      "the raw error names a port and a WinError, which tells nobody "
+      "what to do")
+check("and a memory fault says to try a shorter clip",
+      "illegal memory access" in _video_text
+      and "shorter clip" in _video_text)
+
+_engine_text = Path("avcore/engine.py").read_text(encoding="utf-8")
+check("animating restarts ComfyUI first",
+      "_ensure_comfy" in _engine_text.split("def animate_image")[1][:900],
+      "the listening cycle always did; this path never did")
+
+print("\n=== the Setup page corrects itself ===")
+# A download finished and the page went on insisting the model was not
+# installed until the app was restarted. Whatever failed to report, the
+# page should not need a restart to notice a file that is plainly there.
+import inspect as _inspect
+
+import avgui.setup_panel as _sp
+
+_worker_run = _inspect.getsource(_sp.SetupWorker.run)
+check("the installer is built inside the try",
+      _worker_run.index("try:") < _worker_run.index("Installer("),
+      "it was outside, so anything raised there ended the thread "
+      "without a word")
+check("so finishing is always reported",
+      _worker_run.count("finished.emit") >= 3)
+
+_recheck = _inspect.getsource(_sp.SetupPanel._recheck_models)
+check("a model landing mid-install updates the rows",
+      "_sync_tiers" in _recheck,
+      "a full refresh would fight the status line, but the rows are "
+      "what somebody is watching")
+check("and a page still dressed for a finished install recovers",
+      "install_btn.show" in _recheck,
+      "which is what needed the restart")
+
+print("\n  buttons sit beside what they act on:")
+_panel_text = Path("avgui/settings_panel.py").read_text(encoding="utf-8")
+check("the profile picker does not take the whole row",
+      "self.profile_pick.setMaximumWidth" in _panel_text,
+      "it pushed Load and Delete to the far edge of the panel")
+check("and the device picker does not either",
+      "self.device.setMaximumWidth" in _panel_text,
+      "Refresh apps was a stretch of empty space away from the box "
+      "it refreshes")
+
 bad = [n for n, ok in results if not ok]
 print(f"\n{len(results) - len(bad)}/{len(results)} passed")
 if bad:

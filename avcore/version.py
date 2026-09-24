@@ -8,7 +8,7 @@ filename typed out separately - two places to change and one of them
 easy to forget.
 """
 
-__version__ = "0.1.9.2"
+__version__ = "0.1.9.3"
 
 # Where the app looks to find out whether a newer build exists. Filled
 # in once the releases are published; an empty value simply means the
@@ -36,12 +36,15 @@ AUTHOR = "Cinnamoroll"
 # here rather than parsed out of the release notes so that the app can
 # say what it is without reaching for the network.
 CHANGES = [
-    "Installing Animate images works again - the download never "
-    "started, and the bar sat at zero saying nothing.",
-    "Download bars count in megabytes, so a nine gigabyte file shows "
-    "movement in the first seconds rather than sitting on nought.",
-    "A download that cannot start now says so instead of leaving an "
-    "empty bar that looks like a slow connection.",
+    "Clips are sized for your graphics card. Asking for more than it "
+    "can hold used to crash it and take ComfyUI down with it.",
+    "Animating restarts ComfyUI if it has stopped, instead of showing "
+    "a refused connection.",
+    "The Setup page notices a finished download on its own - it used "
+    "to need the app restarted before it would admit a model was "
+    "installed.",
+    "Buttons in Settings sit beside the things they act on rather than "
+    "against the far edge.",
 ]
 
 
