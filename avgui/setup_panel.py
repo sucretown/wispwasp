@@ -91,6 +91,21 @@ class CheckRow(QWidget):
         self.detail.setText(detail)
 
 
+def _progress_text(done, total):
+    """
+    What a download bar should say while it works.
+
+    In megabytes, whatever the size. The first ninety-five megabytes of
+    a nine gigabyte file round to nought per cent, and a bar reading
+    "0%  0.0 of 9.6 GB" for a minute and a half is indistinguishable
+    from one that is stuck - which is exactly how it was reported.
+    Megabytes tick over every second and say plainly that something is
+    happening.
+    """
+    return (f"%p%   {done / 1_000_000:,.0f} of "
+            f"{total / 1_000_000:,.0f} MB")
+
+
 class ModelFetch(QThread):
     """
     Downloads the video model, resumably, off the interface thread.
@@ -108,7 +123,7 @@ class ModelFetch(QThread):
     progress = Signal("qint64", "qint64")
     done = Signal(str)          # empty when it worked
 
-    def __init__(self, settings, spec=None, folder=None, parent=None):
+    def __init__(self, settings, *, spec=None, folder=None, parent=None):
         """`spec` says which extra to fetch; the video model by default."""
         super().__init__(parent)
         self.s = settings
@@ -116,27 +131,37 @@ class ModelFetch(QThread):
         self.folder = folder
 
     def run(self):
-        from avcore.models import ModelInfo, download
-        from avcore.setup import VIDEO_MODEL, checkpoints_dir
+        """
+        Fetch the extra, and never fail in silence.
 
-        spec = self.spec or VIDEO_MODEL
-        folder = self.folder or checkpoints_dir(self.s)
-
-        info = ModelInfo(
-            name=spec["label"],
-            description="",
-            base_model="",
-            nsfw=False,
-            file_name=spec["name"],
-            size_bytes=spec["bytes"],
-            download_url=spec["url"],
-        )
+        Everything is inside the try, including working out what to
+        fetch. It was outside, and when a bad argument made that step
+        raise, the thread died before the first progress report - so the
+        bar sat at zero and nothing was ever said. A download that
+        cannot start has to announce itself; an empty bar is
+        indistinguishable from a slow connection.
+        """
         try:
+            from avcore.models import ModelInfo, download
+            from avcore.setup import VIDEO_MODEL, checkpoints_dir
+
+            spec = self.spec or VIDEO_MODEL
+            folder = self.folder or checkpoints_dir(self.s)
+
+            info = ModelInfo(
+                name=spec["label"],
+                description="",
+                base_model="",
+                nsfw=False,
+                file_name=spec["name"],
+                size_bytes=spec["bytes"],
+                download_url=spec["url"],
+            )
             download(info, folder,
                      on_progress=lambda a, b: self.progress.emit(a, b))
             self.done.emit("")
         except Exception as exc:
-            self.done.emit(str(exc))
+            self.done.emit(f"The download could not start: {exc}")
 
 
 class UpdateCheck(QThread):
@@ -577,7 +602,11 @@ class SetupPanel(QWidget):
         self.video_bar.setRange(0, 100)
         self.video_bar.setValue(0)
         self.video_bar.show()
-        self._video_worker = ModelFetch(self.s, self)
+        # Named, not positional. `spec` was added in second place,
+        # where the parent had been passed for months - so the worker
+        # got the panel as the thing to download, and died on
+        # spec["label"] before it ever reached the try block.
+        self._video_worker = ModelFetch(self.s, parent=self)
         self._video_worker.progress.connect(self._video_progress)
         self._video_worker.done.connect(self._video_done)
         self._video_worker.start()
@@ -586,9 +615,7 @@ class SetupPanel(QWidget):
     def _video_progress(self, done, total):
         if total:
             self.video_bar.setValue(int(done * 100 / total))
-            self.video_bar.setFormat(
-                f"%p%   {done / 1_000_000_000:.1f} of "
-                f"{total / 1_000_000_000:.1f} GB")
+            self.video_bar.setFormat(_progress_text(done, total))
 
     def _video_done(self, message):
         self.video_bar.hide()
@@ -656,7 +683,8 @@ class SetupPanel(QWidget):
         self.cutout_bar.setValue(0)
         self.cutout_bar.show()
         self._cutout_worker = ModelFetch(
-            self.s, CUTOUT_MODEL, cutout_dir(self.s), self)
+            self.s, spec=CUTOUT_MODEL, folder=cutout_dir(self.s),
+            parent=self)
         self._cutout_worker.progress.connect(self._cutout_progress)
         self._cutout_worker.done.connect(self._cutout_done)
         self._cutout_worker.start()
@@ -665,9 +693,7 @@ class SetupPanel(QWidget):
     def _cutout_progress(self, done, total):
         if total:
             self.cutout_bar.setValue(int(done * 100 / total))
-            self.cutout_bar.setFormat(
-                f"%p%   {done / 1_000_000:.0f} of "
-                f"{total / 1_000_000:.0f} MB")
+            self.cutout_bar.setFormat(_progress_text(done, total))
 
     def _cutout_done(self, message):
         self.cutout_bar.hide()

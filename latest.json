@@ -1,8 +1,8 @@
 {
-  "version": "0.1.9.1",
-  "url": "https://github.com/sucretown/wispwasp/releases/download/v0.1.9.1/WispWasp-0.1.9.1-setup.exe",
+  "version": "0.1.9.2",
+  "url": "https://github.com/sucretown/wispwasp/releases/download/v0.1.9.2/WispWasp-0.1.9.2-setup.exe",
   "page": "https://github.com/sucretown/wispwasp/releases/latest",
-  "sha256": "0d63826169050c8ea1e36a825f79a778961769662fb08b22daffe6da418679cb",
-  "size": 93892790,
-  "notes": "Choose several gallery images at once, plus two fixes."
+  "sha256": "a689e9fd5ac82c742ba373f335057257ed4ab0752199eb2ab353c110a5e44a04",
+  "size": 93900321,
+  "notes": "Installing Animate images works again."
 }

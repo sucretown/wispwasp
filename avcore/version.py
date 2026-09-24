@@ -8,7 +8,7 @@ filename typed out separately - two places to change and one of them
 easy to forget.
 """
 
-__version__ = "0.1.9.1"
+__version__ = "0.1.9.2"
 
 # Where the app looks to find out whether a newer build exists. Filled
 # in once the releases are published; an empty value simply means the
@@ -36,12 +36,12 @@ AUTHOR = "Cinnamoroll"
 # here rather than parsed out of the release notes so that the app can
 # say what it is without reaching for the network.
 CHANGES = [
-    "Choose several pictures in the gallery at once, then favourite, "
-    "censor or delete the lot.",
-    "Get more models opens again - it had stopped doing anything at "
-    "all when the browser learned to show LoRAs.",
-    "Leaving the gallery now closes a playing clip, instead of leaving "
-    "it over whatever page you moved to.",
+    "Installing Animate images works again - the download never "
+    "started, and the bar sat at zero saying nothing.",
+    "Download bars count in megabytes, so a nine gigabyte file shows "
+    "movement in the first seconds rather than sitting on nought.",
+    "A download that cannot start now says so instead of leaving an "
+    "empty bar that looks like a slow connection.",
 ]
 
 

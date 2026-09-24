@@ -1067,6 +1067,48 @@ check("a discreetly named adult model is missed",
       "filenames are all an installed file offers - Civitai's flag is "
       "not in it. This layer catches the obvious and nothing more")
 
+print("\n  the Install download actually starts:")
+# It did not. `spec` was added to the worker in second place, where the
+# parent had been passed for months, so Install handed it the panel as
+# the thing to fetch - and it died on spec["label"] before reaching the
+# try block. The thread ended, no progress was ever reported, and the
+# bar sat at zero looking like a slow connection.
+import inspect as _inspect
+
+from avgui.setup_panel import ModelFetch, _progress_text
+
+_params = _inspect.signature(ModelFetch.__init__).parameters
+check("spec is keyword-only",
+      _params["spec"].kind is _inspect.Parameter.KEYWORD_ONLY,
+      "so passing a widget positionally is an immediate TypeError")
+check("and so is folder",
+      _params["folder"].kind is _inspect.Parameter.KEYWORD_ONLY)
+
+_panel_text = Path("avgui/setup_panel.py").read_text(encoding="utf-8")
+check("nothing builds it positionally any more",
+      "ModelFetch(self.s, self)" not in _panel_text,
+      "the call that made Install do nothing")
+
+print("\n  a worker that cannot start says so:")
+_run = _inspect.getsource(ModelFetch.run)
+_body = _run.split("try:", 1)
+check("everything is inside the try",
+      "ModelInfo(" in _body[1] and "ModelInfo(" not in _body[0],
+      "working out what to fetch was outside it, so a bad argument "
+      "killed the thread before it could report anything")
+check("and the message says the download did not begin",
+      "could not start" in _run,
+      "an empty bar is indistinguishable from a slow connection")
+
+print("\n  and the bar shows movement from the first seconds:")
+_early = _progress_text(13_631_488, 9_559_625_980)
+check("megabytes, not gigabytes", "MB" in _early, _early)
+check("so thirteen megabytes is visible",
+      "14" in _early or "13" in _early, _early)
+check("where gigabytes would have read as nothing",
+      f"{13_631_488 / 1_000_000_000:.1f}" == "0.0",
+      "the first 95MB of a 9.6GB file round to nought per cent")
+
 bad = [n for n, ok in results if not ok]
 print(f"\n{len(results) - len(bad)}/{len(results)} passed")
 if bad:
